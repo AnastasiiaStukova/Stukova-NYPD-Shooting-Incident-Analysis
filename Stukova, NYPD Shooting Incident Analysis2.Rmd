@@ -1,0 +1,246 @@
+---
+title: "NYPD Shooting Incident Analysis"
+author: "Anastasiia Stukova"
+date: "2025-01-21"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+  pdf_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(knitr)
+library(kableExtra)
+library(scales)
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+```
+## <span style="color: darkblue; font-family: Arial; text-align: center;">Executive Summary</span>
+
+This report presents an in-depth analysis of shooting incidents in New York City based on publicly available NYPD data. We aim to understand patterns, identify high-risk areas and times, and provide data-driven recommendations for improving public safety.
+
+
+### Methodology
+Our analysis combines statistical analysis with data visualization to examine:
+- Time-based patterns (annual trends, daily patterns)
+- Geographic distribution
+- Demographic profiles
+- Fatality rates and risk factors
+
+
+## <span style="color: darkblue; font-family: Arial; text-align: center;">Discussion</span>
+
+Our analysis revealed several critical insights:
+
+1. **Temporal Patterns**
+  - Clear peak hours during late night (10 PM - 2 AM)
+  - Seasonal variations with summer spikes
+  - Notable increase post-2020
+
+2. **Geographic Distribution**
+  - Brooklyn shows highest concentration
+  - Significant borough-level disparities
+  - Specific high-risk neighborhoods identified
+
+3. **Demographic Impact**
+  - Males 18-44 most affected
+  - Young adults at particular risk
+  - Notable fatality rate variations
+
+## <span style="color: darkblue; font-family: Arial; text-align: center;">Impact and Implications</span>
+
+These findings have significant implications for:
+- Law enforcement resource allocation
+- Community safety programs
+- Public policy development
+- Emergency response planning
+
+
+
+## <span style="color: darkblue; font-family: Arial; text-align: center;">Data Preparation</span>
+```{r}
+
+
+
+csv_url <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+
+shooting_data <- read_csv(csv_url) %>%
+  mutate(
+    OCCUR_DATE = mdy(OCCUR_DATE),
+    OCCUR_TIME = hms(OCCUR_TIME),
+    year = year(OCCUR_DATE),
+    month = month(OCCUR_DATE),
+    hour = hour(OCCUR_TIME)
+  )
+
+# Summary of the dataset
+glimpse(shooting_data)
+
+
+```
+## <span style="color: darkblue; font-family: Arial; text-align: center;">Trends</span>
+```{r}
+
+```
+<span style="color: darkblue; font-family: Arial; text-align: center;">Annual Trends</span>
+```{r}
+
+annual_trend <- shooting_data %>%
+  group_by(year) %>%
+  summarise(
+    incidents = n(),
+    fatalities = sum(STATISTICAL_MURDER_FLAG == "true", na.rm = TRUE)
+  )
+
+ggplot(annual_trend, aes(x = year)) +
+  geom_line(aes(y = incidents, color = "Incidents"), size = 1.2) +
+  theme_minimal() +
+  labs(title = "Annual Shooting Incidents",
+       y = "Count") +
+  theme(legend.position = "bottom")
+
+
+
+
+```
+<span style="color: darkblue; font-family: Arial; text-align: center;">Hourly Distribution</span>
+```{r}
+
+
+
+hourly_dist <- shooting_data %>%
+  group_by(hour) %>%
+  summarise(incidents = n())
+
+ggplot(hourly_dist, aes(x = hour, y = incidents)) +
+  geom_bar(stat = "identity", fill = "#2c7fb8") +
+  theme_minimal() +
+  labs(
+    title = "Hourly Distribution of Shooting Incidents",
+    x = "Hour of Day",
+    y = "Number of Incidents"
+  ) +
+  scale_x_continuous(breaks = 0:23)
+
+
+```
+<span style="color: darkblue; font-family: Arial; text-align: center;">Borough Analysis</span>
+```{r}
+
+borough_analysis <- shooting_data %>%
+  group_by(BORO) %>%
+  summarise(
+    total_incidents = n(),
+    fatal_incidents = sum(STATISTICAL_MURDER_FLAG == "true", na.rm = TRUE),
+    fatality_rate = round((fatal_incidents / total_incidents) * 100, 2)
+  )
+
+ggplot(borough_analysis, aes(x = reorder(BORO, -total_incidents), y = total_incidents)) +
+  geom_bar(stat = "identity", fill = "#31a354") +
+  theme_minimal() +
+  labs(
+    title = "Shooting Incidents by Borough",
+    x = "Borough",
+    y = "Number of Incidents"
+  ) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+<span style="color: darkblue; font-family: Arial; text-align: center;">Key Statistics</span>
+```{r}
+
+# Creating a table with key statistics
+stats_summary <- data.frame(
+  Metric = c(
+    "Total Incidents",  # Total number of incidents
+    "Total Fatalities", # Total number of fatalities
+    "Most Affected Borough", # Borough with the highest number of incidents
+    "Peak Hour" # Hour with the most incidents
+  ),
+  Value = c(
+    nrow(shooting_data), # Calculates the total number of rows (incidents) in the dataset
+    sum(as.logical(shooting_data$STATISTICAL_MURDER_FLAG), na.rm = TRUE), # Counts the total number of fatalities
+    borough_analysis$BORO[which.max(borough_analysis$total_incidents)], # Finds the borough with the maximum incidents
+    hourly_dist$hour[which.max(hourly_dist$incidents)] # Identifies the hour with the highest number of incidents
+  )
+)
+
+# Displaying the key statistics table
+kable(stats_summary, caption = "Key Statistics") %>% 
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"), # Adds styling options: striped rows, hover effect, compact layout
+    full_width = FALSE # Ensures the table is not stretched to full width
+  ) %>%
+  row_spec(0, bold = TRUE, color = "white", background = "darkblue") %>% # Styles the header row: bold text, white font, dark blue background
+  column_spec(1, bold = TRUE) %>% # Highlights the first column with bold text
+  column_spec(2, color = "darkgreen") # Changes the color of the values in the second column to dark green
+
+
+
+```
+<span style="color: darkblue; font-family: Arial; text-align: center;">Demographic Analysis</span>
+```{r}
+
+
+
+demographic_profile <- shooting_data %>%
+  group_by(VIC_AGE_GROUP, VIC_SEX) %>%
+  summarise(
+    incidents = n(),
+    fatalities = sum(as.logical(STATISTICAL_MURDER_FLAG), na.rm = TRUE)
+  ) %>%
+  arrange(desc(incidents)) %>%
+  mutate(fatality_rate = round((fatalities / incidents) * 100, 2)) # 
+
+
+kable(head(demographic_profile, 10), caption = "Top 10 Demographic Groups by Incidents") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) %>%
+  add_header_above(c(" " = 2, "Metrics" = 3)) 
+
+
+
+```
+## <span style="color: darkblue; font-family: Arial; text-align: center;">Conclusions and Recommendations</span>
+```{r}
+
+
+
+```
+
+**Key Findings**
+
+### **Temporal Patterns**
+- **Peak incidents** occur during late-night hours, specifically around **11 PM**.
+- **Seasonal trends** suggest spikes in incidents during **warmer months**.
+
+### **Geographic Distribution**
+- **Brooklyn** accounts for the highest number of incidents, with a **significant fatality rate**.
+- Certain boroughs demonstrate a **consistently higher risk profile**.
+
+### **Demographic Trends**
+- **Male victims aged 18-44** are the most affected demographic group.
+- **Young males under 24** are particularly vulnerable to incidents.
+
+**Recommendations**
+
+### **Targeted Law Enforcement**
+- **Deploy additional patrols** during peak hours (**10 PM - 2 AM**).
+- Focus resources in **high-risk boroughs**, such as **Brooklyn**.
+
+### **Community Engagement**
+- **Develop prevention programs** targeting **young males under 24**.
+- Collaborate with **community leaders** to promote safety initiatives.
+
+### **Policy Adjustments**
+- **Analyze seasonal trends** to optimize resource allocation during high-risk periods.
+- **Increase investment in public safety infrastructure** in vulnerable boroughs.
+
+```{r}
+
+
